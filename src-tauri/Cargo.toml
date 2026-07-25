@@ -1,0 +1,30 @@
+[package]
+name = "xplatform-taskmgr"
+version = "0.1.0"
+description = "Cross-platform local-first task manager dashboard"
+authors = ["you"]
+license = ""
+repository = ""
+edition = "2021"
+rust-version = "1.77"
+
+[build-dependencies]
+tauri-build = { version = "2.0.0", features = [] }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+sysinfo = "0.31"
+tauri = { version = "2.0.0", features = [] }
+thiserror = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "sync"] }
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[package.metadata]
+
+[package.metadata.tauri-winres]
+FileDescription = "xplatform-taskmgr"
+ProductName = "xplatform-taskmgr"
+OriginalFilename = "xplatform-taskmgr.exe"
