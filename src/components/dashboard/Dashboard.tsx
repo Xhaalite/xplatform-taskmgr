@@ -10,6 +10,7 @@ import { useTelemetry } from '../../store/telemetryStore';
 import { ProcessTable } from './ProcessTable';
 import { SystemOverview } from './SystemOverview';
 import { TrendChart } from './TrendChart';
+import { FilesystemPanel } from './FilesystemPanel';
 
 const panelClass =
   'rounded-[28px] border border-cyanGlow/15 bg-panel p-5 shadow-panel backdrop-blur md:p-6';
@@ -169,6 +170,7 @@ export function Dashboard() {
             />
           </section>
           <ProcessTable />
+          <FilesystemPanel />
         </>
       ) : null}
     </main>

@@ -8,20 +8,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import type { ProcessSortBy } from '../../services/apiClient';
 import { useProcessTable } from '../../store/processStore';
-
-function formatBytes(bytes: number): string {
-  if (bytes <= 0) {
-    return '0 B';
-  }
-
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const index = Math.min(
-    Math.floor(Math.log(bytes) / Math.log(1024)),
-    units.length - 1,
-  );
-  const value = bytes / 1024 ** index;
-  return `${value.toFixed(index > 1 ? 1 : 0)} ${units[index]}`;
-}
+import { formatBytes } from '../../utils/formatters';
 
 function sortIndicator(active: boolean, direction: 'asc' | 'desc') {
   if (!active) {
