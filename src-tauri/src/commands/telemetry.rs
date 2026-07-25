@@ -4,7 +4,10 @@ use crate::security::validation::{
     validate_process_page,
     validate_process_query,
     validate_refresh_interval,
+    validate_scope_path_text,
+    validate_scope_root_request,
 };
+use crate::telemetry::fs::{list_scoped_directory, ScopedDirectoryListing};
 use crate::telemetry::process::{
     collect_process_page,
     ProcessListOptions,
@@ -28,6 +31,13 @@ pub struct ProcessPageRequest {
     pub filter_query: Option<String>,
     pub sort_by: Option<ProcessSortBy>,
     pub sort_direction: Option<SortDirection>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScopedDirectoryRequest {
+    pub root_path: String,
+    pub relative_path: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -68,4 +78,18 @@ pub fn get_process_page(request: ProcessPageRequest) -> Result<ProcessPage, Comm
     };
 
     Ok(collect_process_page(options))
+}
+
+#[tauri::command]
+pub fn list_scoped_directory_command(
+    request: ScopedDirectoryRequest,
+) -> Result<ScopedDirectoryListing, CommandError> {
+    validate_scope_root_request(&request.root_path).map_err(CommandError::from_message)?;
+
+    if let Some(relative_path) = request.relative_path.as_deref() {
+        validate_scope_path_text(relative_path).map_err(CommandError::from_message)?;
+    }
+
+    list_scoped_directory(&request.root_path, request.relative_path.as_deref())
+        .map_err(|error| CommandError::from_message(error.to_string()))
 }
