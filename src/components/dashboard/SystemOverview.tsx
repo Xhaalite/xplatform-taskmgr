@@ -1,3 +1,12 @@
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import {
+  faClock,
+  faDesktop,
+  faHardDrive,
+  faMemory,
+  faMicrochip,
+  faServer,
+} from '@fortawesome/free-solid-svg-icons';
 import type { SystemSnapshot } from '../../services/apiClient';
 
 function formatBytes(bytes: number): string {
@@ -25,42 +34,86 @@ interface Props {
   snapshot: SystemSnapshot;
 }
 
+const statCardClass =
+  'rounded-2xl border border-white/10 bg-slate-950/30 p-4 transition-colors hover:border-cyanGlow/25 hover:bg-slate-950/40';
+
 export function SystemOverview({ snapshot }: Props) {
   return (
-    <section className='panel'>
-      <h2>System Overview</h2>
-      <div className='grid two-col'>
-        <div>
-          <p className='label'>Hostname</p>
-          <p>{snapshot.hostname}</p>
+    <section className='rounded-[28px] border border-cyanGlow/15 bg-panel p-5 shadow-panel backdrop-blur md:p-6'>
+      <div className='mb-5 flex items-center gap-3'>
+        <div className='flex h-10 w-10 items-center justify-center rounded-2xl border border-cyanGlow/20 bg-cyanGlow/10 text-cyanGlow'>
+          <FontAwesomeIcon icon={faDesktop} />
         </div>
         <div>
-          <p className='label'>OS</p>
-          <p>{snapshot.osName}</p>
+          <h2 className='text-xl font-semibold text-white'>System Overview</h2>
+          <p className='text-sm text-slate-400'>
+            Host identity, memory profile, and runtime status
+          </p>
         </div>
-        <div>
-          <p className='label'>Version</p>
-          <p>{snapshot.osVersion}</p>
+      </div>
+
+      <div className='grid gap-4 sm:grid-cols-2 xl:grid-cols-4'>
+        <div className={statCardClass}>
+          <div className='mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400'>
+            <FontAwesomeIcon icon={faServer} />
+            Hostname
+          </div>
+          <p className='text-lg font-semibold text-white'>
+            {snapshot.hostname}
+          </p>
         </div>
-        <div>
-          <p className='label'>Kernel</p>
-          <p>{snapshot.kernelVersion}</p>
+        <div className={statCardClass}>
+          <div className='mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400'>
+            <FontAwesomeIcon icon={faMicrochip} />
+            OS
+          </div>
+          <p className='text-lg font-semibold text-white'>{snapshot.osName}</p>
+          <p className='mt-1 text-sm text-slate-400'>{snapshot.osVersion}</p>
         </div>
-        <div>
-          <p className='label'>Uptime</p>
-          <p>{formatUptime(snapshot.uptimeSeconds)}</p>
+        <div className={statCardClass}>
+          <div className='mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400'>
+            <FontAwesomeIcon icon={faMicrochip} />
+            Kernel
+          </div>
+          <p className='text-lg font-semibold text-white'>
+            {snapshot.kernelVersion}
+          </p>
         </div>
-        <div>
-          <p className='label'>CPU Usage</p>
-          <p>{snapshot.cpuUsagePercent.toFixed(1)}%</p>
+        <div className={statCardClass}>
+          <div className='mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400'>
+            <FontAwesomeIcon icon={faClock} />
+            Uptime
+          </div>
+          <p className='text-lg font-semibold text-white'>
+            {formatUptime(snapshot.uptimeSeconds)}
+          </p>
         </div>
-        <div>
-          <p className='label'>Used Memory</p>
-          <p>{formatBytes(snapshot.usedMemoryBytes)}</p>
+        <div className={statCardClass}>
+          <div className='mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400'>
+            <FontAwesomeIcon icon={faMicrochip} />
+            CPU Usage
+          </div>
+          <p className='text-lg font-semibold text-white'>
+            {snapshot.cpuUsagePercent.toFixed(1)}%
+          </p>
         </div>
-        <div>
-          <p className='label'>Total Memory</p>
-          <p>{formatBytes(snapshot.totalMemoryBytes)}</p>
+        <div className={statCardClass}>
+          <div className='mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400'>
+            <FontAwesomeIcon icon={faMemory} />
+            Used Memory
+          </div>
+          <p className='text-lg font-semibold text-white'>
+            {formatBytes(snapshot.usedMemoryBytes)}
+          </p>
+        </div>
+        <div className={statCardClass}>
+          <div className='mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400'>
+            <FontAwesomeIcon icon={faHardDrive} />
+            Total Memory
+          </div>
+          <p className='text-lg font-semibold text-white'>
+            {formatBytes(snapshot.totalMemoryBytes)}
+          </p>
         </div>
       </div>
     </section>
