@@ -1,5 +1,6 @@
 use serde::Serialize;
 use sysinfo::System;
+use std::sync::{Mutex, OnceLock};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -67,6 +68,77 @@ pub struct SystemSnapshot {
 pub enum TelemetryError {
     #[error("system clock returned invalid value")]
     InvalidSystemTime,
+    #[error("system telemetry collector unavailable")]
+    CollectorUnavailable,
+}
+
+struct SystemSampler {
+    system: System,
+    cpu_warmed_up: bool,
+}
+
+impl SystemSampler {
+    fn new() -> Self {
+        let mut system = System::new_all();
+        system.refresh_all();
+
+        Self {
+            system,
+            cpu_warmed_up: false,
+        }
+    }
+
+    fn snapshot(&mut self) -> Result<SystemSnapshot, TelemetryError> {
+        if !self.cpu_warmed_up {
+            // sysinfo CPU usage is delta-based; warm up once so Linux snapshots are non-zero.
+            self.system.refresh_cpu_usage();
+            std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+            self.system.refresh_cpu_usage();
+            self.cpu_warmed_up = true;
+        } else {
+            self.system.refresh_cpu_usage();
+        }
+
+        self.system.refresh_memory();
+
+        let cpu_usage_percent = if self.system.cpus().is_empty() {
+            0.0
+        } else {
+            let total: f32 = self.system.cpus().iter().map(|cpu| cpu.cpu_usage()).sum();
+            clamp_percent(total / self.system.cpus().len() as f32)
+        };
+
+        let (total_memory_bytes, used_memory_bytes) =
+            normalize_usage(self.system.total_memory(), self.system.used_memory());
+        let (total_swap_bytes, used_swap_bytes) =
+            normalize_usage(self.system.total_swap(), self.system.used_swap());
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| TelemetryError::InvalidSystemTime)?;
+
+        Ok(SystemSnapshot {
+            hostname: System::host_name().unwrap_or_else(|| "unknown-host".to_string()),
+            os_name: System::name().unwrap_or_else(|| "unknown-os".to_string()),
+            os_version: System::long_os_version().unwrap_or_else(|| "unknown-version".to_string()),
+            kernel_version: System::kernel_version().unwrap_or_else(|| "unknown-kernel".to_string()),
+            uptime_seconds: System::uptime(),
+            cpu_usage_percent,
+            total_memory_bytes,
+            used_memory_bytes,
+            total_swap_bytes,
+            used_swap_bytes,
+            capabilities: build_capabilities(),
+            capability_details: build_capability_details(),
+            normalization: build_normalization_metadata(),
+            sampled_at_epoch_ms: now.as_millis() as u64,
+        })
+    }
+}
+
+fn global_sampler() -> &'static Mutex<SystemSampler> {
+    static SAMPLER: OnceLock<Mutex<SystemSampler>> = OnceLock::new();
+    SAMPLER.get_or_init(|| Mutex::new(SystemSampler::new()))
 }
 
 fn metric_capability(
@@ -129,43 +201,11 @@ fn normalize_usage(total: u64, used: u64) -> (u64, u64) {
 }
 
 pub fn collect_system_snapshot() -> Result<SystemSnapshot, TelemetryError> {
-    let mut system = System::new_all();
-    system.refresh_all();
-
-    let cpu_usage_percent = if system.cpus().is_empty() {
-        0.0
-    } else {
-        let total: f32 = system.cpus().iter().map(|cpu| cpu.cpu_usage()).sum();
-        clamp_percent(total / system.cpus().len() as f32)
-    };
-
-    let (total_memory_bytes, used_memory_bytes) =
-        normalize_usage(system.total_memory(), system.used_memory());
-    let (total_swap_bytes, used_swap_bytes) =
-        normalize_usage(system.total_swap(), system.used_swap());
-
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_err(|_| TelemetryError::InvalidSystemTime)?;
-
-    let snapshot = SystemSnapshot {
-        hostname: System::host_name().unwrap_or_else(|| "unknown-host".to_string()),
-        os_name: System::name().unwrap_or_else(|| "unknown-os".to_string()),
-        os_version: System::long_os_version().unwrap_or_else(|| "unknown-version".to_string()),
-        kernel_version: System::kernel_version().unwrap_or_else(|| "unknown-kernel".to_string()),
-        uptime_seconds: System::uptime(),
-        cpu_usage_percent,
-        total_memory_bytes,
-        used_memory_bytes,
-        total_swap_bytes,
-        used_swap_bytes,
-        capabilities: build_capabilities(),
-        capability_details: build_capability_details(),
-        normalization: build_normalization_metadata(),
-        sampled_at_epoch_ms: now.as_millis() as u64,
-    };
-
-    Ok(snapshot)
+    let sampler = global_sampler();
+    let mut sampler = sampler
+        .lock()
+        .map_err(|_| TelemetryError::CollectorUnavailable)?;
+    sampler.snapshot()
 }
 
 #[cfg(test)]
