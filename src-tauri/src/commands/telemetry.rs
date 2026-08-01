@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::security::validation::{
+    validate_command_rate,
     validate_process_page,
+    validate_process_pid,
     validate_process_query,
     validate_refresh_interval,
     validate_scope_path_text,
@@ -9,7 +11,9 @@ use crate::security::validation::{
 };
 use crate::telemetry::fs::{list_scoped_directory, ScopedDirectoryListing};
 use crate::telemetry::process::{
+    collect_process_detail,
     collect_process_page,
+    ProcessDetail,
     ProcessListOptions,
     ProcessPage,
     ProcessSortBy,
@@ -36,6 +40,12 @@ pub struct ProcessPageRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ProcessDetailRequest {
+    pub pid: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ScopedDirectoryRequest {
     pub root_path: String,
     pub relative_path: Option<String>,
@@ -58,12 +68,17 @@ impl CommandError {
 pub fn get_system_snapshot(request: SnapshotRequest) -> Result<crate::telemetry::system::SystemSnapshot, CommandError> {
     validate_refresh_interval(request.min_refresh_ms)
         .map_err(CommandError::from_message)?;
+    validate_command_rate("get_system_snapshot", 100)
+        .map_err(CommandError::from_message)?;
 
     collect_system_snapshot().map_err(|err| CommandError::from_message(err.to_string()))
 }
 
 #[tauri::command]
 pub fn get_network_snapshot() -> Result<crate::telemetry::network::NetworkSnapshot, CommandError> {
+    validate_command_rate("get_network_snapshot", 100)
+        .map_err(CommandError::from_message)?;
+
     collect_network_snapshot().map_err(|err| CommandError::from_message(err.to_string()))
 }
 
@@ -74,6 +89,8 @@ pub fn get_process_page(request: ProcessPageRequest) -> Result<ProcessPage, Comm
 
     let filter_query = request.filter_query.unwrap_or_default();
     validate_process_query(&filter_query).map_err(CommandError::from_message)?;
+    validate_command_rate("get_process_page", 150)
+        .map_err(CommandError::from_message)?;
 
     let options = ProcessListOptions {
         page: request.page,
@@ -87,10 +104,22 @@ pub fn get_process_page(request: ProcessPageRequest) -> Result<ProcessPage, Comm
 }
 
 #[tauri::command]
+pub fn get_process_detail(request: ProcessDetailRequest) -> Result<ProcessDetail, CommandError> {
+    validate_process_pid(&request.pid).map_err(CommandError::from_message)?;
+    validate_command_rate("get_process_detail", 150)
+        .map_err(CommandError::from_message)?;
+
+    collect_process_detail(request.pid.trim())
+        .map_err(|error| CommandError::from_message(error.to_string()))
+}
+
+#[tauri::command]
 pub fn list_scoped_directory_command(
     request: ScopedDirectoryRequest,
 ) -> Result<ScopedDirectoryListing, CommandError> {
     validate_scope_root_request(&request.root_path).map_err(CommandError::from_message)?;
+    validate_command_rate("list_scoped_directory_command", 100)
+        .map_err(CommandError::from_message)?;
 
     if let Some(relative_path) = request.relative_path.as_deref() {
         validate_scope_path_text(relative_path).map_err(CommandError::from_message)?;

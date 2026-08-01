@@ -17,11 +17,12 @@
 
 - Narrow command surface via explicit registration.
 - Strongly typed DTOs and validation of polling bounds.
+- Lightweight per-command rate limiting in the Rust command gateway.
 - No shell command execution.
 - Capability flags for unavailable fields to avoid implicit assumptions.
 
 ## Planned Mitigations
 
-- Rate limiting and per-command timeouts.
+- Per-command execution timeouts.
 - Structured audit logging for sensitive operations.
 - Signed builds and verified update channels.

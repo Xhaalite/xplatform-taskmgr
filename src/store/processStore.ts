@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  getProcessDetail,
   getProcessPage,
+  type ProcessDetail,
   type ProcessItem,
   type ProcessSortBy,
   type SortDirection,
@@ -154,5 +156,71 @@ export function useProcessTable(refreshMs = 5000) {
     setSort,
     nextPage,
     prevPage,
+  };
+}
+
+export interface ProcessDetailState {
+  selectedPid: string | null;
+  detail: ProcessDetail | null;
+  loadingDetail: boolean;
+  detailError: string | null;
+}
+
+export function useProcessDetail() {
+  const [state, setState] = useState<ProcessDetailState>({
+    selectedPid: null,
+    detail: null,
+    loadingDetail: false,
+    detailError: null,
+  });
+
+  const openDetail = async (pid: string) => {
+    const sanitizedPid = pid.trim();
+    if (!sanitizedPid) {
+      return;
+    }
+
+    setState({
+      selectedPid: sanitizedPid,
+      detail: null,
+      loadingDetail: true,
+      detailError: null,
+    });
+
+    try {
+      const detail = await getProcessDetail(sanitizedPid);
+      setState({
+        selectedPid: sanitizedPid,
+        detail,
+        loadingDetail: false,
+        detailError: null,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to load process detail';
+      setState({
+        selectedPid: sanitizedPid,
+        detail: null,
+        loadingDetail: false,
+        detailError: message,
+      });
+    }
+  };
+
+  const closeDetail = () => {
+    setState({
+      selectedPid: null,
+      detail: null,
+      loadingDetail: false,
+      detailError: null,
+    });
+  };
+
+  return {
+    ...state,
+    openDetail,
+    closeDetail,
   };
 }

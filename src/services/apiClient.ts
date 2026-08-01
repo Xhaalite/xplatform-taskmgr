@@ -87,6 +87,20 @@ export interface ProcessItem {
   startedAtEpochS: number;
 }
 
+export interface ProcessDetail {
+  pid: string;
+  name: string;
+  commandLine: string;
+  executablePath: string | null;
+  currentWorkingDirectory: string | null;
+  cpuUsagePercent: number;
+  memoryBytes: number;
+  virtualMemoryBytes: number;
+  status: string;
+  startedAtEpochS: number;
+  runTimeSeconds: number;
+}
+
 export interface ProcessPageRequest {
   page: number;
   pageSize: number;
@@ -146,6 +160,12 @@ export async function getProcessPage(
 
 export async function getNetworkSnapshot(): Promise<NetworkSnapshot> {
   return invoke<NetworkSnapshot>('get_network_snapshot');
+}
+
+export async function getProcessDetail(pid: string): Promise<ProcessDetail> {
+  return invoke<ProcessDetail>('get_process_detail', {
+    request: { pid },
+  });
 }
 
 export async function listScopedDirectory(

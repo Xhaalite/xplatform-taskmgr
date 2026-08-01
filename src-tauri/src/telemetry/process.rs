@@ -44,6 +44,30 @@ pub struct ProcessPage {
     pub filter_query: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProcessDetail {
+    pub pid: String,
+    pub name: String,
+    pub command_line: String,
+    pub executable_path: Option<String>,
+    pub current_working_directory: Option<String>,
+    pub cpu_usage_percent: f32,
+    pub memory_bytes: u64,
+    pub virtual_memory_bytes: u64,
+    pub status: String,
+    pub started_at_epoch_s: u64,
+    pub run_time_seconds: u64,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ProcessTelemetryError {
+    #[error("process telemetry collector unavailable")]
+    CollectorUnavailable,
+    #[error("process {0} not found")]
+    ProcessNotFound(String),
+}
+
 #[derive(Debug)]
 pub struct ProcessListOptions {
     pub page: u32,
@@ -87,6 +111,12 @@ fn process_sampler() -> &'static Mutex<ProcessSampler> {
     SAMPLER.get_or_init(|| Mutex::new(ProcessSampler::new()))
 }
 
+fn lock_sampler() -> Result<std::sync::MutexGuard<'static, ProcessSampler>, ProcessTelemetryError> {
+    process_sampler()
+        .lock()
+        .map_err(|_| ProcessTelemetryError::CollectorUnavailable)
+}
+
 fn os_to_string(value: Cow<'_, str>) -> String {
     value.trim().to_string()
 }
@@ -115,8 +145,7 @@ fn sort_processes(items: &mut [ProcessItem], sort_by: ProcessSortBy, direction: 
 }
 
 pub fn collect_process_page(options: ProcessListOptions) -> ProcessPage {
-    let sampler = process_sampler();
-    let mut sampler = sampler
+    let mut sampler = process_sampler()
         .lock()
         .expect("process telemetry collector lock poisoned");
     sampler.refresh();
@@ -174,4 +203,40 @@ pub fn collect_process_page(options: ProcessListOptions) -> ProcessPage {
         sort_direction: options.sort_direction,
         filter_query: options.filter_query,
     }
+}
+
+pub fn collect_process_detail(pid_text: &str) -> Result<ProcessDetail, ProcessTelemetryError> {
+    let mut sampler = lock_sampler()?;
+    sampler.refresh();
+
+    let process = sampler
+        .system
+        .processes()
+        .iter()
+        .find(|(pid, _)| pid.to_string() == pid_text)
+        .map(|(_, process)| process)
+        .ok_or_else(|| ProcessTelemetryError::ProcessNotFound(pid_text.to_string()))?;
+
+    let command_line = process
+        .cmd()
+        .iter()
+        .map(|value| value.to_string_lossy().to_string())
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    Ok(ProcessDetail {
+        pid: pid_text.to_string(),
+        name: os_to_string(process.name().to_string_lossy()),
+        command_line,
+        executable_path: process.exe().map(|value| value.to_string_lossy().to_string()),
+        current_working_directory: process
+            .cwd()
+            .map(|value| value.to_string_lossy().to_string()),
+        cpu_usage_percent: process.cpu_usage(),
+        memory_bytes: process.memory(),
+        virtual_memory_bytes: process.virtual_memory(),
+        status: format!("{:?}", process.status()),
+        started_at_epoch_s: process.start_time(),
+        run_time_seconds: process.run_time(),
+    })
 }
