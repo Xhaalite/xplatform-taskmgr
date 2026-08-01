@@ -15,6 +15,7 @@ use crate::telemetry::process::{
     ProcessSortBy,
     SortDirection,
 };
+use crate::telemetry::network::collect_network_snapshot;
 use crate::telemetry::system::collect_system_snapshot;
 
 #[derive(Debug, Deserialize)]
@@ -59,6 +60,11 @@ pub fn get_system_snapshot(request: SnapshotRequest) -> Result<crate::telemetry:
         .map_err(CommandError::from_message)?;
 
     collect_system_snapshot().map_err(|err| CommandError::from_message(err.to_string()))
+}
+
+#[tauri::command]
+pub fn get_network_snapshot() -> Result<crate::telemetry::network::NetworkSnapshot, CommandError> {
+    collect_network_snapshot().map_err(|err| CommandError::from_message(err.to_string()))
 }
 
 #[tauri::command]

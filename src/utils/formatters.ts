@@ -18,3 +18,11 @@ export function formatUptime(seconds: number): string {
   const minutes = Math.floor((seconds % 3600) / 60);
   return `${days}d ${hours}h ${minutes}m`;
 }
+
+export function formatBytesPerSecond(
+  bytes: number,
+  intervalSeconds = 1,
+): string {
+  const safeInterval = intervalSeconds > 0 ? intervalSeconds : 1;
+  return `${formatBytes(bytes / safeInterval)}/s`;
+}

@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::sync::{Mutex, OnceLock};
 
 use serde::{Deserialize, Serialize};
 use sysinfo::{ProcessesToUpdate, System};
@@ -52,6 +53,40 @@ pub struct ProcessListOptions {
     pub filter_query: String,
 }
 
+struct ProcessSampler {
+    system: System,
+    cpu_warmed_up: bool,
+}
+
+impl ProcessSampler {
+    fn new() -> Self {
+        let mut system = System::new_all();
+        system.refresh_all();
+
+        Self {
+            system,
+            cpu_warmed_up: false,
+        }
+    }
+
+    fn refresh(&mut self) {
+        if !self.cpu_warmed_up {
+            // Process CPU percentages are delta-based, so prime a baseline once.
+            self.system.refresh_processes(ProcessesToUpdate::All);
+            std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+            self.system.refresh_processes(ProcessesToUpdate::All);
+            self.cpu_warmed_up = true;
+        } else {
+            self.system.refresh_processes(ProcessesToUpdate::All);
+        }
+    }
+}
+
+fn process_sampler() -> &'static Mutex<ProcessSampler> {
+    static SAMPLER: OnceLock<Mutex<ProcessSampler>> = OnceLock::new();
+    SAMPLER.get_or_init(|| Mutex::new(ProcessSampler::new()))
+}
+
 fn os_to_string(value: Cow<'_, str>) -> String {
     value.trim().to_string()
 }
@@ -80,12 +115,16 @@ fn sort_processes(items: &mut [ProcessItem], sort_by: ProcessSortBy, direction: 
 }
 
 pub fn collect_process_page(options: ProcessListOptions) -> ProcessPage {
-    let mut system = System::new_all();
-    system.refresh_processes(ProcessesToUpdate::All);
+    let sampler = process_sampler();
+    let mut sampler = sampler
+        .lock()
+        .expect("process telemetry collector lock poisoned");
+    sampler.refresh();
 
     let normalized_query = options.filter_query.trim().to_lowercase();
 
-    let mut items = system
+    let mut items = sampler
+        .system
         .processes()
         .iter()
         .filter_map(|(pid, process)| {

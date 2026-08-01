@@ -56,6 +56,23 @@ export interface SnapshotRequest {
   minRefreshMs: number;
 }
 
+export interface NetworkInterfaceSnapshot {
+  name: string;
+  receivedBytes: number;
+  transmittedBytes: number;
+}
+
+export interface NetworkSnapshot {
+  supported: boolean;
+  note: string | null;
+  interfaces: NetworkInterfaceSnapshot[];
+  totalReceivedBytes: number;
+  totalTransmittedBytes: number;
+  deltaReceivedBytes: number;
+  deltaTransmittedBytes: number;
+  sampledAtEpochMs: number;
+}
+
 export type ProcessSortBy = 'pid' | 'name' | 'cpuUsagePercent' | 'memoryBytes';
 
 export type SortDirection = 'asc' | 'desc';
@@ -125,6 +142,10 @@ export async function getProcessPage(
   request: ProcessPageRequest,
 ): Promise<ProcessPage> {
   return invoke<ProcessPage>('get_process_page', { request });
+}
+
+export async function getNetworkSnapshot(): Promise<NetworkSnapshot> {
+  return invoke<NetworkSnapshot>('get_network_snapshot');
 }
 
 export async function listScopedDirectory(

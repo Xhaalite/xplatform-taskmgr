@@ -8,6 +8,7 @@ fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             commands::telemetry::get_system_snapshot,
+            commands::telemetry::get_network_snapshot,
             commands::telemetry::get_process_page,
             commands::telemetry::list_scoped_directory_command
         ])

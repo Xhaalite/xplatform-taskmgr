@@ -11,6 +11,7 @@ import { ProcessTable } from './ProcessTable';
 import { SystemOverview } from './SystemOverview';
 import { TrendChart } from './TrendChart';
 import { FilesystemPanel } from './FilesystemPanel';
+import { NetworkPanel } from './NetworkPanel';
 
 const panelClass =
   'rounded-[28px] border border-cyanGlow/15 bg-panel p-5 shadow-panel backdrop-blur md:p-6';
@@ -170,6 +171,7 @@ export function Dashboard() {
             />
           </section>
           <ProcessTable />
+          <NetworkPanel />
           <FilesystemPanel />
         </>
       ) : null}
